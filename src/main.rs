@@ -1,5 +1,40 @@
-use bevy::prelude::*;
+mod components;
+mod systems;
+
+use bevy::{
+    prelude::*,
+    render::{
+        camera::RenderTarget,
+        render_resource::{
+            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+        },
+        view::RenderLayers,
+    },
+    sprite::MaterialMesh2dBundle,
+    window::{
+        WindowResized,
+        PrimaryWindow,
+    },
+};
+use bevy::input::{InputPlugin, InputSystem};
+use bevy::input::keyboard::KeyboardInput;
+use bevy::input::mouse::{MouseButtonInput, MouseWheel};
+
+const WHITE: Color = Color::linear_rgba(1., 1., 1., 1.);
+const INVISIBLE: Color = Color::linear_rgba(0., 0., 0., 0.);
+const CAMERA_SPEED: f32 = 500.0;
+const ZOOM_MULTIPLIER: f32 = 5.;
 
 fn main() {
-    App::new().run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, (systems::setup_camera, systems::setup_mesh))
+        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement))
+        .run();
 }
+
+
+
+
+
+
