@@ -266,7 +266,7 @@ pub fn display_tilemap(
         }
     }
 
-    println!("showing: {}/{} in {}ms", index, tilesSize, time.delta().as_millis());
+    // println!("showing: {}/{} in {}ms", index, tilesSize, time.delta().as_millis());
 }
 
 pub fn setup_tiles_cache(mut commands: Commands){
@@ -321,20 +321,20 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashSet<uVec3>, newTileMap: &mut Hash
     let mut count = 0;
     for i in -1..2{
         for j in -1..2{
-            let mut countArround = 0;
-            for k in -1..2{
-                for l in -1..2{
-                    if(tileMap.contains(&uVec3::new(pos.x + i + k, pos.y + j + l, 0))){
-                        countArround += 1;
+            if(!tileMap.contains(&uVec3::new(pos.x + i, pos.y + j, 0))){
+                let mut countArround = 0;
+                for k in -1..2{
+                    for l in -1..2{
+                        if(!(k==0 && l==0) && tileMap.contains(&uVec3::new(pos.x + i + k, pos.y + j + l, 0))){
+                            countArround += 1;
+                        }
                     }
                 }
+                if(countArround == 3){
+                    newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0));
+                }
             }
-            if(countArround < 2 || countArround > 3){
-                newTileMap.remove(&uVec3::new(pos.x + i, pos.y + j, 0));
-            } else {
-                newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0));
-            }
-            if(tileMap.contains(&uVec3::new(pos.x + i, pos.y + j, 0))){
+            if(!(i==0 && j==0) && tileMap.contains(&uVec3::new(pos.x + i, pos.y + j, 0))){
                 count += 1;
             }
         }
