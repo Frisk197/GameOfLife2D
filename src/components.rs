@@ -20,3 +20,9 @@ pub struct Tile;
 pub struct TilesCache{
     pub entities: Vec<Entity>
 }
+
+#[derive(Component)]
+pub struct RefreshTimer{
+    pub lastRefresh: u128,
+    pub timeBetweenRefresh: u128,
+}

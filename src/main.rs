@@ -29,8 +29,8 @@ const ZOOM_MULTIPLIER: f32 = 5.;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, (systems::setup_camera, /*systems::setup_mesh,*/ systems::setup_simulation, systems::setup_tiles_cache))
-        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap))
+        .add_systems(Startup, (systems::setup_camera, systems::setup_mesh, systems::setup_simulation, systems::setup_refresh_timer))
+        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap, systems::run_simulation))
         .run();
 }
 

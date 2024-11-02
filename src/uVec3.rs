@@ -2,13 +2,13 @@ use bevy::math::Vec3;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 pub struct uVec3{
-    pub x: u32,
-    pub y: u32,
-    pub z: u32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
 }
 
 impl uVec3{
-    pub fn new(x: u32, y: u32, z: u32) -> uVec3{
+    pub fn new(x: i32, y: i32, z: i32) -> uVec3{
         let mut a: uVec3 = uVec3 {
             x,
             y,

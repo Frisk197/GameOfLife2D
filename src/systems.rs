@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::collections::VecDeque;
 use bevy::asset::{Assets, Handle};
+use bevy::color::Color;
 use bevy::input::ButtonInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::math::Vec3;
@@ -16,7 +17,8 @@ use crate::uVec3::uVec3;
 
 pub fn setup_camera(mut commands: Commands){
     let mut proj = OrthographicProjection::default();
-    proj.near = -1000.;
+    proj.near = -1.;
+    proj.far = 5.;
     proj.scale = 0.5;
     commands.spawn((
         Camera2dBundle{
@@ -116,12 +118,12 @@ pub fn tile_placement(
     mouse_input: Res<ButtonInput<MouseButton>>
 ){
     let mut key: MouseButton = MouseButton::Forward;
-    if(mouse_input.just_pressed(MouseButton::Left) && !mouse_input.just_pressed(MouseButton::Right)){
+    if(mouse_input.pressed(MouseButton::Left) && !mouse_input.pressed(MouseButton::Right)){
         key = MouseButton::Left;
-    } else if(mouse_input.just_pressed(MouseButton::Right) && !mouse_input.just_pressed(MouseButton::Left)){
+    } else if(mouse_input.pressed(MouseButton::Right) && !mouse_input.pressed(MouseButton::Left)){
         key = MouseButton::Right;
     }
-    if(key != MouseButton::Forward){
+    if(key == MouseButton::Left){
         if let Ok(mut tileMap) = tilemap_query.get_single_mut(){
             let (camera, global_transform) = camera_query.single();
             let window = window_query.single();
@@ -130,7 +132,19 @@ pub fn tile_placement(
                 .map(|ray| ray.origin.truncate()){
                 world_position.x = world_position.x.round();
                 world_position.y = world_position.y.round();
-                tileMap.current_state.insert(uVec3::new(world_position.x as u32, world_position.y as u32, 0));
+                tileMap.current_state.insert(uVec3::new(world_position.x as i32, world_position.y as i32, 0));
+            }
+        }
+    } else if key == MouseButton::Right{
+        if let Ok(mut tileMap) = tilemap_query.get_single_mut(){
+            let (camera, global_transform) = camera_query.single();
+            let window = window_query.single();
+            if let Some(mut world_position) = window.cursor_position()
+                .and_then(|cursor| camera.viewport_to_world(global_transform, cursor))
+                .map(|ray| ray.origin.truncate()){
+                world_position.x = world_position.x.round();
+                world_position.y = world_position.y.round();
+                tileMap.current_state.remove(&uVec3::new(world_position.x as i32, world_position.y as i32, 0));
             }
         }
     }
@@ -179,68 +193,80 @@ pub fn setup_simulation(
     for i in 0..30 {
         for j in 0..57{
             if(benchmark[i][j] == 1){
-                map.insert(uVec3::new(i as u32, j as u32, 0));
+                map.insert(uVec3::new(i as i32, j as i32, 0));
             }
         }
     }
 
     commands.spawn((
         TileMap{
-            running: false,
+            running: true,
             current_state: map,
             state_stack: VecDeque::new(),
         }
     ));
 }
-pub fn run_simulation(
-
-){
-
-}
 
 pub fn display_tilemap(
+    mut refresh_timer_query: Query<&mut RefreshTimer>,
     mut tilemap_query: Query<&TileMap>,
-    mut tile_query: Query<(&Tile, &Handle<ColorMaterial>, &mut Transform)>,
+    mut tile_query: Query<(Entity, &Tile, &mut Transform)>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut tile_cache_query: Query<&mut TilesCache>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    time: Res<Time>
 ){
+    let mut refresh_timer = refresh_timer_query.single_mut();
+    // println!("{} {} {}", refresh_timer.lastRefresh, refresh_timer.timeBetweenRefresh, time.elapsed().as_millis());
+    if(refresh_timer.timeBetweenRefresh != 0 && refresh_timer.lastRefresh + refresh_timer.timeBetweenRefresh >= time.elapsed().as_millis()){
+        return;
+    }
+    refresh_timer.lastRefresh = time.elapsed().as_millis();
+
     let tileMap = tilemap_query.single();
     let tileMapSize = tileMap.current_state.len();
 
-    let mut tilesCache = tile_cache_query.single_mut();
-    let tilesCacheSize = tilesCache.entities.len();
+    let mut tiles = tile_query.iter_mut();
+    let tilesSize = tiles.len();
 
     let mut index = 0;
-    for pos in tileMap.current_state.clone(){
-        if(index >= tilesCacheSize){
-            let com = commands.spawn((
+
+    let mut currTile = tiles.next();
+
+    for pos in &tileMap.current_state{
+        if(!currTile.is_none()){
+            let (entity, tile, mut transform) = currTile.unwrap();
+            transform.translation = pos.toVec3();
+            // let color_mat = materials.get_mut(mat).unwrap();
+            // color_mat.color = WHITE;
+            currTile = tiles.next();
+        } else if(index < tileMapSize){
+            commands.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.add(Rectangle::default()).into(),
                     transform: Transform::from_translation(pos.toVec3()).with_scale(Vec3::splat(1.)),
                     material: materials.add(WHITE),
                     ..default()
                 },
+                Tile
             ));
-            tilesCache.entities.push(com.id());
-        } else if let Ok((tile, mat, transform)) = tile_query.get_mut(tilesCache.entities[index]){
-            let color_mat = materials.get_mut(mat).unwrap();
-            color_mat.color = WHITE;
         }
         index += 1;
     }
 
-    if(index < tilesCacheSize){
-        if let Ok((tile, mat, transform)) = tile_query.get_mut(tilesCache.entities[index]){
-            let color_mat = materials.get_mut(mat).unwrap();
-            color_mat.color = INVISIBLE;
+    if(index < tilesSize){
+        for i in 0..(tilesSize-index){
+            if(!currTile.is_none()){
+                let (entity, tile, mut transform) = currTile.unwrap();
+                transform.translation = Vec3::new(0.,0.,-7.);
+                // let color_mat = materials.get_mut(mat).unwrap();
+                // color_mat.color = Color::linear_rgba(1.,0.,0.,1.);
+                currTile = tiles.next();
+            }
         }
-        index += 1;
     }
 
-    // println!("{} {}", index, tilesCacheSize);
-
+    println!("showing: {}/{} in {}ms", index, tilesSize, time.delta().as_millis());
 }
 
 pub fn setup_tiles_cache(mut commands: Commands){
@@ -250,13 +276,72 @@ pub fn setup_tiles_cache(mut commands: Commands){
 }
 
 pub fn display_cube_material(
-    mut tile_query: Query<(&Tile, &Handle<ColorMaterial>, &mut Transform)>,
+    mut tile_query: Query<(&Handle<ColorMaterial>, &mut Transform), With<Tile>>,
     mut materials: ResMut<Assets<ColorMaterial>>
 ){
-    for (tile, mat, transform) in tile_query.iter(){
+    for (mat, transform) in tile_query.iter(){
         if(transform.translation.x == 1.0){
             let color_mat = materials.get_mut(mat).unwrap();
             color_mat.color = INVISIBLE;
         }
+    }
+}
+
+pub fn setup_refresh_timer(
+    mut commands: Commands,
+    time: Res<Time>,
+){
+    commands.spawn(
+        RefreshTimer{
+            lastRefresh: time.elapsed().as_millis(),
+            timeBetweenRefresh: 0,
+        }
+    );
+}
+
+
+pub fn run_simulation(
+    mut tilemap_query: Query<&mut TileMap>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+){
+    let mut tileMap = tilemap_query.single_mut();
+    if(keyboard_input.just_pressed(KeyCode::Space)){
+        tileMap.running = !tileMap.running;
+    }
+    if(tileMap.running){
+        let mut newTileMap: HashSet<uVec3> = tileMap.current_state.clone();
+        for tile in tileMap.current_state.iter(){
+            checkArround(tile, &tileMap.current_state, &mut newTileMap);
+        }
+        tileMap.current_state = newTileMap;
+    }
+}
+
+pub fn checkArround(pos: &uVec3, tileMap: &HashSet<uVec3>, newTileMap: &mut HashSet<uVec3>){
+    let mut count = 0;
+    for i in -1..2{
+        for j in -1..2{
+            let mut countArround = 0;
+            for k in -1..2{
+                for l in -1..2{
+                    if(tileMap.contains(&uVec3::new(pos.x + i + k, pos.y + j + l, 0))){
+                        countArround += 1;
+                    }
+                }
+            }
+            if(countArround < 2 || countArround > 3){
+                newTileMap.remove(&uVec3::new(pos.x + i, pos.y + j, 0));
+            } else {
+                newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0));
+            }
+            if(tileMap.contains(&uVec3::new(pos.x + i, pos.y + j, 0))){
+                count += 1;
+            }
+        }
+    }
+    if(count < 2 || count > 3){
+        newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
+    } else {
+        newTileMap.insert(uVec3::new(pos.x, pos.y, 0));
     }
 }
