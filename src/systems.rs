@@ -270,9 +270,11 @@ pub fn run_simulation(
     }
     if(tileMap.running){
         let mut newTileMap: HashSet<uVec3> = tileMap.current_state.clone();
+        //TODO multithread the inside of this loop
         for tile in tileMap.current_state.iter(){
             checkArround(tile, &tileMap.current_state, &mut newTileMap);
         }
+        //
         tileMap.current_state = newTileMap;
     }
 }
