@@ -9,7 +9,7 @@ use bevy::prelude::{default, Camera, Camera2dBundle, ColorMaterial, Commands, En
 use bevy::reflect::Array;
 use bevy::sprite::{Material2d, MaterialMesh2dBundle};
 use bevy::utils::HashSet;
-use bevy::window::PrimaryWindow;
+use bevy::window::{PresentMode, PrimaryWindow};
 use crate::{CAMERA_SPEED, INVISIBLE, WHITE, ZOOM_MULTIPLIER};
 use crate::components;
 use crate::components::*;
@@ -382,4 +382,17 @@ pub fn place_patterns(
 
 
 
+}
+
+pub fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>){
+    if input.just_pressed(KeyCode::KeyV){
+        let mut window = windows.single_mut();
+
+        window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
+            PresentMode::AutoNoVsync
+        }else{
+            PresentMode::AutoVsync
+        };
+        println!("PRESENT MODE : {:?}", window.present_mode)
+    }
 }

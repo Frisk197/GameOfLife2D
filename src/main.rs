@@ -17,6 +17,7 @@ use bevy::{
         PrimaryWindow,
     },
 };
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::input::{InputPlugin, InputSystem};
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
@@ -28,9 +29,11 @@ const ZOOM_MULTIPLIER: f32 = 5.;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins,
+                      LogDiagnosticsPlugin::default(),
+                      FrameTimeDiagnosticsPlugin,))
         .add_systems(Startup, (systems::setup_camera, systems::setup_mesh, systems::setup_simulation, systems::setup_refresh_timer))
-        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap, systems::run_simulation, systems::place_patterns))
+        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap, systems::run_simulation, systems::place_patterns, systems::toggle_vsync))
         .run();
 }
 
