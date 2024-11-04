@@ -1,7 +1,11 @@
 use std::any::Any;
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::thread::spawn;
 use bevy::asset::{Assets, Handle};
 use bevy::color::Color;
+use bevy::gltf::GltfAssetLabel::Node;
 use bevy::input::ButtonInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::math::Vec3;
@@ -190,36 +194,73 @@ pub fn display_tilemap(
 
     let mut currTile = tiles.next();
 
+    // let mut test:Vec<uVec3> = Vec::new();
+    // for i in tilemap_query.single().current_state.iter() {
+    //     let a = *i;
+    //     thread::spawn(move ||{
+    //         println!("tile {}, {}, {}", a.x, a.y, a.z);
+    //     });
+    // }
+
+
+    let mut spawns: Vec<uVec3> = Vec::new();
+    let sp = Arc::new(Mutex::new(spawns));
+
     for pos in &tileMap.current_state{
-        if(!currTile.is_none()){
-            let (entity, tile, mut transform) = currTile.unwrap();
-            transform.translation = pos.toVec3();
-            // let color_mat = materials.get_mut(mat).unwrap();
-            // color_mat.color = WHITE;
-            currTile = tiles.next();
-        } else if(index < tileMapSize){
-            commands.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.add(Rectangle::default()).into(),
-                    transform: Transform::from_translation(pos.toVec3()).with_scale(Vec3::splat(1.)),
-                    material: materials.add(WHITE),
-                    ..default()
-                },
-                Tile
-            ));
+        let mut sp2 = sp.clone();
+        let ct;
+        if currTile.is_none(){
+            ct = None;
+        } else {
+            ct = Some(currTile.unwrap());
         }
+        let a = *pos;
+        thread::spawn(move ||{
+            if(!ct.is_none()){
+                let (entity, tile, mut transform) = ct.unwrap();
+                transform.translation = a.toVec3();
+                // let color_mat = materials.get_mut(mat).unwrap();
+                // color_mat.color = WHITE;
+            } else if(index < tileMapSize){
+                sp2.lock().unwrap().push(*pos);
+            }
+        });
+        currTile = tiles.next();
         index += 1;
+    }
+
+    let mut sp2 = sp.clone();
+    let mut sp3 = sp2.lock().unwrap();
+    for s in sp3.iter(){
+        commands.spawn((
+            MaterialMesh2dBundle {
+                mesh: meshes.add(Rectangle::default()).into(),
+                transform: Transform::from_translation(s.toVec3()).with_scale(Vec3::splat(1.)),
+                material: materials.add(WHITE),
+                ..default()
+            },
+            Tile
+        ));
     }
 
     if(index < tilesSize){
         for i in 0..(tilesSize-index){
-            if(!currTile.is_none()){
-                let (entity, tile, mut transform) = currTile.unwrap();
-                transform.translation = Vec3::new(0.,0.,-7.);
-                // let color_mat = materials.get_mut(mat).unwrap();
-                // color_mat.color = Color::linear_rgba(1.,0.,0.,1.);
-                currTile = tiles.next();
+            let ct;
+            if currTile.is_none(){
+                ct = None;
+            } else {
+                ct = Some(currTile.unwrap());
             }
+            thread::spawn(move||{
+                if(!ct.is_none()){
+                    let (entity, tile, mut transform) = ct.unwrap();
+                    transform.translation = Vec3::new(0.,0.,-7.);
+                    // let color_mat = materials.get_mut(mat).unwrap();
+                    // color_mat.color = Color::linear_rgba(1.,0.,0.,1.);
+                }
+            });
+            currTile = tiles.next();
+
         }
     }
 
