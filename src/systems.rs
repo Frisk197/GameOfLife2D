@@ -162,6 +162,8 @@ pub fn setup_simulation(
     ));
 }
 
+
+//TODO multithread this shit and make it despawn tiles instead of lifting
 pub fn display_tilemap(
     mut refresh_timer_query: Query<&mut RefreshTimer>,
     mut tilemap_query: Query<&TileMap>,
