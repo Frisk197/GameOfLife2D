@@ -5,7 +5,7 @@ use bevy::input::mouse::MouseWheel;
 use bevy::math::Vec3;
 use bevy::prelude::{default, Camera, Camera2dBundle, ColorMaterial, Commands, Entity, EventReader, GlobalTransform, KeyCode, Mesh, MouseButton, OrthographicProjection, Query, Rectangle, Res, ResMut, Time, Transform, Window, With};
 use bevy::reflect::Array;
-use bevy::sprite::MaterialMesh2dBundle;
+use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::utils::HashSet;
 use bevy::window::{PresentMode, PrimaryWindow};
 use crate::{CAMERA_SPEED, INVISIBLE, WHITE, ZOOM_MULTIPLIER};
@@ -28,38 +28,22 @@ pub fn setup_camera(mut commands: Commands){
     ));
 }
 
-pub fn setup_mesh(
+pub fn setup_batching(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut meshAssets: ResMut<Assets<Mesh>>,
+    mut materialAssets: ResMut<Assets<ColorMaterial>>
 ) {
+
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::default()).into(),
-            transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(1.)),
-            material: materials.add(WHITE),
+            mesh: meshAssets.add(Rectangle::default()).into(),
+            transform: Transform::from_xyz(0.,0.,-7.).with_scale(Vec3::splat(1.)),
+            material: materialAssets.add(WHITE),
             ..default()
         },
-        Tile
+        ReferenceTile
     ));
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::default()).into(),
-            transform: Transform::from_xyz(1., 0., 0.).with_scale(Vec3::splat(1.)),
-            material: materials.add(WHITE),
-            ..default()
-        },
-        Tile
-    ));
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::default()).into(),
-            transform: Transform::from_xyz(2., 0., 0.).with_scale(Vec3::splat(1.)),
-            material: materials.add(WHITE),
-            ..default()
-        },
-        Tile
-    ));
+
 }
 
 pub fn camera_mouvement(
@@ -166,6 +150,7 @@ pub fn display_tilemap(
     mut refresh_timer_query: Query<&mut RefreshTimer>,
     mut tilemap_query: Query<&TileMap>,
     mut tile_query: Query<(Entity, &Tile, &mut Transform)>,
+    mut reference_tile_query: Query<(&ReferenceTile, &Mesh2dHandle, &Handle<ColorMaterial>)>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -188,6 +173,8 @@ pub fn display_tilemap(
 
     let mut currTile = tiles.next();
 
+    let (reft, refmesh, refmat) = reference_tile_query.single();
+    
     for pos in &tileMap.current_state{
         if(!currTile.is_none()){
             let (entity, tile, mut transform) = currTile.unwrap();
@@ -198,13 +185,14 @@ pub fn display_tilemap(
         } else if(index < tileMapSize){
             commands.spawn((
                 MaterialMesh2dBundle {
-                    mesh: meshes.add(Rectangle::default()).into(),
+                    mesh: refmesh.clone(),
                     transform: Transform::from_translation(pos.toVec3()).with_scale(Vec3::splat(1.)),
-                    material: materials.add(WHITE),
+                    material: refmat.clone(),
                     ..default()
                 },
                 Tile
             ));
+
         }
         index += 1;
     }

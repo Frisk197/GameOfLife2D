@@ -17,6 +17,9 @@ pub struct TileMap{
 pub struct Tile;
 
 #[derive(Component)]
+pub struct ReferenceTile;
+
+#[derive(Component)]
 pub struct TilesCache{
     pub entities: Vec<Entity>
 }

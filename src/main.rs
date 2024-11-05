@@ -32,7 +32,7 @@ fn main() {
         .add_plugins((DefaultPlugins,
                       LogDiagnosticsPlugin::default(),
                       FrameTimeDiagnosticsPlugin,))
-        .add_systems(Startup, (systems::setup_camera, systems::setup_mesh, systems::setup_simulation, systems::setup_refresh_timer))
+        .add_systems(Startup, (systems::setup_camera, systems::setup_batching, systems::setup_simulation, systems::setup_refresh_timer))
         .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap, systems::run_simulation, systems::place_patterns, systems::toggle_vsync))
         .run();
 }
