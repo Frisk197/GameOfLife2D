@@ -198,12 +198,17 @@ pub fn display_tilemap(
     }
 
     if(index < tilesSize){
+        let unusedPercentage = ((tilesSize-index) / tilesSize) * 100;
         for i in 0..(tilesSize-index){
             if(!currTile.is_none()){
                 let (entity, tile, mut transform) = currTile.unwrap();
-                transform.translation = Vec3::new(0.,0.,-7.);
-                // let color_mat = materials.get_mut(mat).unwrap();
-                // color_mat.color = Color::linear_rgba(1.,0.,0.,1.);
+                if(unusedPercentage > 20 && (((tilesSize-index) / tilesSize) * 100) > 80){
+                    commands.entity(entity).despawn();
+                } else {
+                    transform.translation = Vec3::new(0.,0.,-7.);
+                    // let color_mat = materials.get_mut(mat).unwrap();
+                    // color_mat.color = Color::linear_rgba(1.,0.,0.,1.);
+                }
                 currTile = tiles.next();
             }
         }
