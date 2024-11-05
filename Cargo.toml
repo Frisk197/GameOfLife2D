@@ -3,5 +3,11 @@ name = "GameOfLife2D"
 version = "0.1.0"
 edition = "2021"
 
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+
 [dependencies]
 bevy = "0.14.2"

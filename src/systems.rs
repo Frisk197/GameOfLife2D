@@ -1,13 +1,11 @@
-use std::any::Any;
 use std::collections::VecDeque;
 use bevy::asset::{Assets, Handle};
-use bevy::color::Color;
 use bevy::input::ButtonInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::math::Vec3;
-use bevy::prelude::{default, Camera, Camera2dBundle, ColorMaterial, Commands, Entity, EventReader, GlobalTransform, KeyCode, Mesh, MouseButton, Mut, OrthographicProjection, Query, Rectangle, Res, ResMut, StandardMaterial, Time, Transform, Window, With};
+use bevy::prelude::{default, Camera, Camera2dBundle, ColorMaterial, Commands, Entity, EventReader, GlobalTransform, KeyCode, Mesh, MouseButton, OrthographicProjection, Query, Rectangle, Res, ResMut, Time, Transform, Window, With};
 use bevy::reflect::Array;
-use bevy::sprite::{Material2d, MaterialMesh2dBundle};
+use bevy::sprite::MaterialMesh2dBundle;
 use bevy::utils::HashSet;
 use bevy::window::{PresentMode, PrimaryWindow};
 use crate::{CAMERA_SPEED, INVISIBLE, WHITE, ZOOM_MULTIPLIER};
@@ -73,20 +71,20 @@ pub fn camera_mouvement(
     if let Ok((mut transform, mut projection)) = camera_query.get_single_mut(){
         let mut direction = Vec3::ZERO;
 
-        if(keyboard_input.pressed(KeyCode::KeyW)){
+        if keyboard_input.pressed(KeyCode::KeyW) {
             direction += Vec3::new(0.,1.,0.);
         }
-        if(keyboard_input.pressed(KeyCode::KeyS)){
+        if keyboard_input.pressed(KeyCode::KeyS) {
             direction += Vec3::new(0.,-1.,0.);
         }
-        if(keyboard_input.pressed(KeyCode::KeyD)){
+        if keyboard_input.pressed(KeyCode::KeyD) {
             direction += Vec3::new(1.,0.,0.);
         }
-        if(keyboard_input.pressed(KeyCode::KeyA)){
+        if keyboard_input.pressed(KeyCode::KeyA) {
             direction += Vec3::new(-1.,0.,0.);
         }
 
-        if(direction.length() > 0.0){
+        if direction.length() > 0.0 {
             direction = direction.normalize();
         }
 
@@ -99,10 +97,10 @@ pub fn camera_mouvement(
         }
 
         let mut zoom = projection.scale;
-        if(wheel != 0.0){
+        if wheel != 0.0 {
             zoom -= (wheel * 0.01) * zoom * ZOOM_MULTIPLIER;
 
-            if(zoom < 0.01){
+            if zoom < 0.01 {
                 zoom = 0.01;
             }
             projection.scale = zoom;
