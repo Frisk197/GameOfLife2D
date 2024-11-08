@@ -26,8 +26,9 @@ const WHITE: Color = Color::linear_rgba(1., 1., 1., 1.);
 const INVISIBLE: Color = Color::linear_rgba(0., 0., 0., 0.);
 const CAMERA_SPEED: f32 = 500.0;
 const ZOOM_MULTIPLIER: f32 = 5.;
+const UPDATE_COUNT_LIMIT: i32 = 25;
+const UNSTBLE_CHANGER_LIMIT: i32 = 10;
 
-const UPDATE_COUNT_LIMIT: i32 = 100;
 
 fn main() {
     App::new()
@@ -35,7 +36,7 @@ fn main() {
                       LogDiagnosticsPlugin::default(),
                       FrameTimeDiagnosticsPlugin,))
         .add_systems(Startup, (systems::setup_camera, systems::setup_batching, systems::setup_simulation, systems::setup_refresh_timer))
-        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap, systems::run_simulation, systems::place_patterns, systems::toggle_vsync))
+        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap, systems::run_simulation, systems::place_patterns, systems::toggle_vsync, systems::hide_off_tiles))
         .run();
 }
 
