@@ -185,6 +185,7 @@ pub fn display_tilemap(
     mut meshes: ResMut<Assets<Mesh>>,
     time: Res<Time>
 ){
+
     let mut refresh_timer = refresh_timer_query.single_mut();
     // println!("{} {} {}", refresh_timer.lastRefresh, refresh_timer.timeBetweenRefresh, time.elapsed().as_millis());
     if(refresh_timer.timeBetweenRefresh != 0 && refresh_timer.lastRefresh + refresh_timer.timeBetweenRefresh >= time.elapsed().as_millis()){
@@ -196,6 +197,9 @@ pub fn display_tilemap(
     let sizea = tileMap.current_state.len();
     let sizeb = tileMap.stable_current_state.len();
 
+    if !tileMap.running{
+        return;
+    }
 
     let tileMapSize = sizea + sizeb;
 
@@ -276,7 +280,7 @@ pub fn display_tilemap(
         }
     }
 
-    println!("{} + {} = {} tiles {}s", sizea, sizeb, tileMapSize, time.delta().as_secs_f64());
+    // println!("{} + {} = {} tiles {}s", sizea, sizeb, tileMapSize, time.delta().as_secs_f64());
 }
 
 pub fn setup_tiles_cache(mut commands: Commands){
@@ -341,6 +345,8 @@ pub fn run_simulation(
     }
 }
 
+
+
 pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>, stableTileMap: &HashMap<uVec3, (Option<Entity>, i32)>, newTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>, newStableTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>, inTileMapRemove: &mut Vec<Entity>){
     let mut count = 0;
     for i in -1..2{
@@ -362,9 +368,11 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
                         if stableTileMap.contains_key(&p){
                             for k in -1..2{
                                 for l in -1..2{
-                                    let (entity, updateCount) = stableTileMap.get(&uVec3::new(pos.x, pos.y, pos.z)).unwrap();
-                                    newStableTileMap.remove(&uVec3::new(p.x + k, p.y + l, 0));
-                                    newTileMap.insert(uVec3::new(p.x + k, p.y + l, 0), (*entity, UPDATE_COUNT_LIMIT));
+                                    if stableTileMap.contains_key(&uVec3::new(pos.x+k, pos.y+l, pos.z)) || tileMap.contains_key(&uVec3::new(pos.x+k, pos.y+l, pos.z)){
+                                        let (entity, updateCount) = stableTileMap.get(&uVec3::new(pos.x, pos.y, pos.z)).unwrap();
+                                        newStableTileMap.remove(&uVec3::new(p.x + k, p.y + l, 0));
+                                        newTileMap.insert(uVec3::new(p.x + k, p.y + l, 0), (*entity, UPDATE_COUNT_LIMIT));
+                                    }
                                 }
                             }
                         }
@@ -377,49 +385,29 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
         }
     }
     if(count < 2 || count > 3){
-        if tileMap.contains_key(&uVec3::new(pos.x, pos.y, 0)){
-            let (ent, upd) = newTileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
-            if(!ent.is_none()){
-                inTileMapRemove.push(ent.unwrap());
-            }
-            newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
-            newStableTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
-            for i in -1..2{
-                for j in -1..2{
-                    if !(i==0 && j==0) && stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
-                        let (entity, updateStep) = stableTileMap.get(&uVec3::new(pos.x + i, pos.y + j, 0)).unwrap();
-                        newStableTileMap.remove(&uVec3::new(pos.x + i, pos.y + j, 0));
-                        newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (*entity, UPDATE_COUNT_LIMIT));
-                    }
-                }
-            }
-        } else if stableTileMap.contains_key(&uVec3::new(pos.x, pos.y, 0)){
-            let (ent, upd) = newStableTileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
-            if(!ent.is_none()){
-                inTileMapRemove.push(ent.unwrap());
-            }
-            newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
-            newStableTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
-            for i in -1..2{
-                for j in -1..2{
-                    if !(i==0 && j==0) && stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
-                        let (entity, updateStep) = stableTileMap.get(&uVec3::new(pos.x + i, pos.y + j, 0)).unwrap();
-                        newStableTileMap.remove(&uVec3::new(pos.x + i, pos.y + j, 0));
-                        newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (*entity, UPDATE_COUNT_LIMIT));
-                    }
+        let (ent, upd) = tileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
+        if(!ent.is_none()){
+            inTileMapRemove.push(ent.unwrap());
+        }
+        newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
+        newStableTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
+        for i in -1..2{
+            for j in -1..2{
+                if !(i==0 && j==0) && stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
+                    let (entity, updateStep) = stableTileMap.get(&uVec3::new(pos.x + i, pos.y + j, 0)).unwrap();
+                    newStableTileMap.remove(&uVec3::new(pos.x + i, pos.y + j, 0));
+                    newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (*entity, UPDATE_COUNT_LIMIT));
                 }
             }
         }
     } else {
-        if tileMap.contains_key(&uVec3::new(pos.x, pos.y, 0)){
-            let (entity, updateStep) = tileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
-            if(*updateStep <= 1){
-                // println!("moved one key !!!!");
-                newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
-                newStableTileMap.insert(uVec3::new(pos.x, pos.y, 0), (*entity, updateStep-1));
-            } else {
-                newTileMap.insert(uVec3::new(pos.x, pos.y, 0), (*entity, updateStep-1));
-            }
+        let (entity, updateStep) = tileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
+        if(*updateStep <= 1){
+            // println!("moved one key !!!!");
+            newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
+            newStableTileMap.insert(uVec3::new(pos.x, pos.y, 0), (*entity, updateStep-1));
+        } else {
+            newTileMap.insert(uVec3::new(pos.x, pos.y, 0), (*entity, updateStep-1));
         }
     }
 }
