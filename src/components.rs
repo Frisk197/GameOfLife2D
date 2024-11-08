@@ -1,6 +1,5 @@
-use std::collections::VecDeque;
 use bevy::prelude::{Component, Entity};
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::{HashMap};
 use crate::uVec3::uVec3;
 
 #[derive(Component)]
