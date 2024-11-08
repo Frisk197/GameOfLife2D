@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use bevy::prelude::{Component, Entity};
-use bevy::utils::HashSet;
+use bevy::utils::{HashMap, HashSet};
 use crate::uVec3::uVec3;
 
 #[derive(Component)]
@@ -9,8 +9,8 @@ pub struct MainCamera;
 #[derive(Component)]
 pub struct TileMap{
     pub running: bool,
-    pub current_state: HashSet<uVec3>,
-    pub state_stack: VecDeque<HashSet<uVec3>>,
+    pub current_state: HashMap<uVec3, (Option<Entity>, i32)>,
+    pub stable_current_state: HashMap<uVec3, (Option<Entity>, i32)>,
 }
 
 #[derive(Component)]

@@ -27,6 +27,8 @@ const INVISIBLE: Color = Color::linear_rgba(0., 0., 0., 0.);
 const CAMERA_SPEED: f32 = 500.0;
 const ZOOM_MULTIPLIER: f32 = 5.;
 
+const UPDATE_COUNT_LIMIT: i32 = 50;
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins,
