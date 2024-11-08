@@ -1,9 +1,10 @@
 use std::collections::VecDeque;
+use std::process::Command;
 use bevy::asset::{Assets, Handle};
 use bevy::input::ButtonInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::math::Vec3;
-use bevy::prelude::{default, Camera, Camera2dBundle, ColorMaterial, Commands, Entity, EventReader, GlobalTransform, KeyCode, Mesh, MouseButton, OrthographicProjection, Query, Rectangle, Res, ResMut, Time, Transform, Window, With};
+use bevy::prelude::{default, Camera, Camera2dBundle, ColorMaterial, Commands, Entity, EventReader, GlobalTransform, In, KeyCode, Mesh, MouseButton, OrthographicProjection, Query, Rectangle, Res, ResMut, Time, Transform, Window, With, Without};
 use bevy::reflect::Array;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::utils::{HashMap, HashSet};
@@ -114,7 +115,21 @@ pub fn tile_placement(
                 .map(|ray| ray.origin.truncate()){
                 world_position.x = world_position.x.round();
                 world_position.y = world_position.y.round();
-                tileMap.current_state.insert(uVec3::new(world_position.x as i32, world_position.y as i32, 0), (None, 5));
+                tileMap.current_state.insert(uVec3::new(world_position.x as i32, world_position.y as i32, 0), (None, UPDATE_COUNT_LIMIT));
+                let mut switching: Vec<(uVec3, Entity)> = Vec::new();
+                for i in -2..3{
+                    for j in -2..3{
+                        if tileMap.stable_current_state.contains_key(&uVec3::new(world_position.x as i32 + i, world_position.y as i32 + j, 0)){
+                            let (entity, updateCounter) = tileMap.stable_current_state.get(&uVec3::new(world_position.x as i32 + i, world_position.y as i32 + j, 0)).unwrap();
+                            switching.push((uVec3::new(world_position.x as i32 + i, world_position.y as i32 + j, 0), entity.unwrap()));
+                        }
+                    }
+                }
+
+                for (spos, sent) in switching{
+                    tileMap.current_state.insert(spos, (Option::from(sent), UPDATE_COUNT_LIMIT));
+                    tileMap.stable_current_state.remove(&spos);
+                }
             }
         }
     } else if key == MouseButton::Right{
@@ -126,6 +141,19 @@ pub fn tile_placement(
                 .map(|ray| ray.origin.truncate()){
                 world_position.x = world_position.x.round();
                 world_position.y = world_position.y.round();
+                let mut switching: Vec<(uVec3, Entity)> = Vec::new();
+                for i in -1..2{
+                    for j in -1..2{
+                        if tileMap.stable_current_state.contains_key(&uVec3::new(world_position.x as i32 + i, world_position.y as i32 + j, 0)){
+                            let (entity, updateCounter) = tileMap.stable_current_state.get(&uVec3::new(world_position.x as i32 + i, world_position.y as i32 + j, 0)).unwrap();
+                            switching.push((uVec3::new(world_position.x as i32 + i, world_position.y as i32 + j, 0), entity.unwrap()));
+                        }
+                    }
+                }
+                for (spos, sent) in switching{
+                    tileMap.current_state.insert(spos, (Option::from(sent), UPDATE_COUNT_LIMIT));
+                    tileMap.stable_current_state.remove(&spos);
+                }
                 tileMap.current_state.remove(&uVec3::new(world_position.x as i32, world_position.y as i32, 0));
             }
         }
@@ -148,8 +176,9 @@ pub fn setup_simulation(
 //TODO multithread this shit and make it despawn tiles instead of lifting
 pub fn display_tilemap(
     mut refresh_timer_query: Query<&mut RefreshTimer>,
-    mut tilemap_query: Query<&TileMap>,
-    mut tile_query: Query<(Entity, &Tile, &mut Transform)>,
+    mut tilemap_query: Query<&mut TileMap>,
+    mut not_in_map_tile_query: Query<(Entity, &Tile, &mut Transform), Without<InTileMap>>,
+    mut tile_query: Query<(Entity, &Tile, &mut Transform), With<InTileMap>>,
     mut reference_tile_query: Query<(&ReferenceTile, &Mesh2dHandle, &Handle<ColorMaterial>)>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut commands: Commands,
@@ -163,42 +192,72 @@ pub fn display_tilemap(
     }
     refresh_timer.lastRefresh = time.elapsed().as_millis();
 
-    let tileMap = tilemap_query.single();
-    let mut a = tileMap.current_state.clone();
-    let b = tileMap.stable_current_state.clone();
-    a.extend(b);
+    let mut tileMap = tilemap_query.single_mut();
+    let sizea = tileMap.current_state.len();
+    let sizeb = tileMap.stable_current_state.len();
 
 
-    let tileMapSize = a.len();
+    let tileMapSize = sizea + sizeb;
 
-    let mut tiles = tile_query.iter_mut();
+    let mut tiles = not_in_map_tile_query.iter_mut();
     let tilesSize = tiles.len();
 
     let mut index = 0;
 
     let mut currTile = tiles.next();
 
+
+
     let (reft, refmesh, refmat) = reference_tile_query.single();
     
-    for pos in &tileMap.current_state{
-        if(!currTile.is_none()){
-            let (entity, tile, mut transform) = currTile.unwrap();
-            transform.translation = pos.0.toVec3();
-            // let color_mat = materials.get_mut(mat).unwrap();
-            // color_mat.color = WHITE;
-            currTile = tiles.next();
-        } else if(index < tileMapSize){
-            commands.spawn((
-                MaterialMesh2dBundle {
-                    mesh: refmesh.clone(),
-                    transform: Transform::from_translation(pos.0.toVec3()).with_scale(Vec3::splat(1.)),
-                    material: refmat.clone(),
-                    ..default()
-                },
-                Tile
-            ));
-
+    for (pos, (entity, updateState)) in tileMap.current_state.iter_mut(){
+        if !entity.is_none(){
+            if let Ok((tileEntity, tile, mut transform)) = tile_query.get_mut(entity.unwrap()){
+                // println!("im in there");
+                transform.translation = pos.toVec3();
+            } else if(!currTile.is_none()){
+                // println!("im right here");
+                let (tileEntity, tile, mut tileTransform) = currTile.unwrap();
+                *entity = Option::from(tileEntity);
+                tileTransform.translation = pos.toVec3();
+                currTile = tiles.next();
+                commands.entity(tileEntity).insert(InTileMap);
+            } else if(index < tileMapSize){
+                // println!("over there");
+                let ent = commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: refmesh.clone(),
+                        transform: Transform::from_translation(pos.toVec3()).with_scale(Vec3::splat(1.)),
+                        material: refmat.clone(),
+                        ..default()
+                    },
+                    Tile,
+                    InTileMap
+                ));
+                *entity = Option::from(ent.id());
+            }
+        } else {
+            if(!currTile.is_none()){
+                let (tileEntity, tile, mut tileTransform) = currTile.unwrap();
+                *entity = Option::from(tileEntity);
+                tileTransform.translation = pos.toVec3();
+                currTile = tiles.next();
+                commands.entity(tileEntity).insert(InTileMap);
+            } else if(index < tileMapSize){
+                let ent = commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: refmesh.clone(),
+                        transform: Transform::from_translation(pos.toVec3()).with_scale(Vec3::splat(1.)),
+                        material: refmat.clone(),
+                        ..default()
+                    },
+                    Tile,
+                    InTileMap
+                ));
+                *entity = Option::from(ent.id());
+            }
         }
+
         index += 1;
     }
 
@@ -211,15 +270,13 @@ pub fn display_tilemap(
                     commands.entity(entity).despawn();
                 } else {
                     transform.translation = Vec3::new(0.,0.,-7.);
-                    // let color_mat = materials.get_mut(mat).unwrap();
-                    // color_mat.color = Color::linear_rgba(1.,0.,0.,1.);
                 }
                 currTile = tiles.next();
             }
         }
     }
 
-    println!("{} + {} = {} tiles {}s", tileMap.current_state.len(), tileMap.stable_current_state.len(), tileMapSize, time.delta().as_secs_f64());
+    println!("{} + {} = {} tiles {}s", sizea, sizeb, tileMapSize, time.delta().as_secs_f64());
 }
 
 pub fn setup_tiles_cache(mut commands: Commands){
@@ -256,6 +313,7 @@ pub fn setup_refresh_timer(
 pub fn run_simulation(
     mut tilemap_query: Query<&mut TileMap>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
 ){
     let mut tileMap = tilemap_query.single_mut();
     if(keyboard_input.just_pressed(KeyCode::Space)){
@@ -269,17 +327,21 @@ pub fn run_simulation(
     if(tileMap.running){
         let mut newTileMap: HashMap<uVec3, (Option<Entity>, i32)> = tileMap.current_state.clone();
         let mut newStableTileMap: HashMap<uVec3, (Option<Entity>, i32)> = tileMap.stable_current_state.clone();
+        let mut inTileMapRemove: Vec<Entity> = Vec::new();
         //TODO multithread the inside of this loop
         for tile in tileMap.current_state.iter(){
-            checkArround(tile.0, &tileMap.current_state, &tileMap.stable_current_state, &mut newTileMap, &mut newStableTileMap);
+            checkArround(tile.0, &tileMap.current_state, &tileMap.stable_current_state, &mut newTileMap, &mut newStableTileMap, &mut inTileMapRemove);
         }
         //
+        for t in inTileMapRemove{
+            commands.entity(t).remove::<InTileMap>();
+        }
         tileMap.current_state = newTileMap;
         tileMap.stable_current_state = newStableTileMap;
     }
 }
 
-pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>, stableTileMap: &HashMap<uVec3, (Option<Entity>, i32)>, newTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>, newStableTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>){
+pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>, stableTileMap: &HashMap<uVec3, (Option<Entity>, i32)>, newTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>, newStableTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>, inTileMapRemove: &mut Vec<Entity>){
     let mut count = 0;
     for i in -1..2{
         for j in -1..2{
@@ -298,11 +360,12 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
                     newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (None, UPDATE_COUNT_LIMIT));
                     for p in tilesAvailable{
                         if stableTileMap.contains_key(&p){
-                            // println!("moved one back");
-                            let (entity, updateCount) = stableTileMap.get(&uVec3::new(pos.x, pos.y, pos.z)).unwrap();
-                            newStableTileMap.remove(&p);
-                            if !newTileMap.contains_key(&p){
-                                newTileMap.insert(p, (*entity, UPDATE_COUNT_LIMIT));
+                            for k in -1..2{
+                                for l in -1..2{
+                                    let (entity, updateCount) = stableTileMap.get(&uVec3::new(pos.x, pos.y, pos.z)).unwrap();
+                                    newStableTileMap.remove(&uVec3::new(p.x + k, p.y + l, 0));
+                                    newTileMap.insert(uVec3::new(p.x + k, p.y + l, 0), (*entity, UPDATE_COUNT_LIMIT));
+                                }
                             }
                         }
                     }
@@ -315,28 +378,34 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
     }
     if(count < 2 || count > 3){
         if tileMap.contains_key(&uVec3::new(pos.x, pos.y, 0)){
+            let (ent, upd) = newTileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
+            if(!ent.is_none()){
+                inTileMapRemove.push(ent.unwrap());
+            }
             newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
+            newStableTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
             for i in -1..2{
                 for j in -1..2{
-                    if stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
+                    if !(i==0 && j==0) && stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
                         let (entity, updateStep) = stableTileMap.get(&uVec3::new(pos.x + i, pos.y + j, 0)).unwrap();
                         newStableTileMap.remove(&uVec3::new(pos.x + i, pos.y + j, 0));
-                        if !newTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
-                            newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (*entity, UPDATE_COUNT_LIMIT));
-                        }
+                        newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (*entity, UPDATE_COUNT_LIMIT));
                     }
                 }
             }
         } else if stableTileMap.contains_key(&uVec3::new(pos.x, pos.y, 0)){
+            let (ent, upd) = newStableTileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
+            if(!ent.is_none()){
+                inTileMapRemove.push(ent.unwrap());
+            }
+            newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
             newStableTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
             for i in -1..2{
                 for j in -1..2{
-                    if stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
+                    if !(i==0 && j==0) && stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
                         let (entity, updateStep) = stableTileMap.get(&uVec3::new(pos.x + i, pos.y + j, 0)).unwrap();
                         newStableTileMap.remove(&uVec3::new(pos.x + i, pos.y + j, 0));
-                        if !newTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
-                            newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (*entity, UPDATE_COUNT_LIMIT));
-                        }
+                        newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (*entity, UPDATE_COUNT_LIMIT));
                     }
                 }
             }

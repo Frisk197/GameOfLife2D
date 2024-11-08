@@ -16,6 +16,12 @@ pub struct TileMap{
 pub struct Tile;
 
 #[derive(Component)]
+pub struct InTileMap;
+
+#[derive(Component)]
+pub struct Stable;
+
+#[derive(Component)]
 pub struct ReferenceTile;
 
 #[derive(Component)]
