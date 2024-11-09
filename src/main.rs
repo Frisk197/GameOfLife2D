@@ -36,7 +36,7 @@ fn main() {
                       LogDiagnosticsPlugin::default(),
                       FrameTimeDiagnosticsPlugin,))
         .add_systems(Startup, (systems::setup_camera, systems::setup_batching, systems::setup_simulation, systems::setup_refresh_timer))
-        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement, systems::display_tilemap, systems::run_simulation, systems::place_patterns, systems::toggle_vsync, systems::hide_off_tiles))
+        .add_systems(Update, (systems::camera_mouvement, systems::tile_placement.before(systems::display_tilemap), systems::display_tilemap.after(systems::hide_off_tiles), systems::run_simulation.after(systems::hide_off_tiles), systems::place_patterns.before(systems::display_tilemap), systems::toggle_vsync, systems::hide_off_tiles))
         .run();
 }
 

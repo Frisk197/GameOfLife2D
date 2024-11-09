@@ -434,6 +434,8 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
 pub fn place_patterns(
     mut tilemap_query: Query<&mut TileMap>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut tile_query: Query<(Entity, &Tile, &mut Transform), With<InTileMap>>,
+    mut commands: Commands,
 ){
     if(keyboard_input.just_pressed(KeyCode::KeyB)){
         let mut tileMap = tilemap_query.single_mut();
@@ -499,6 +501,11 @@ pub fn place_patterns(
     if(keyboard_input.just_pressed(KeyCode::Backspace)){
         let mut tileMap = tilemap_query.single_mut();
         tileMap.current_state.clear();
+        tileMap.stable_current_state.clear();
+        for (entity, tile, mut transform) in tile_query.iter_mut(){
+            commands.entity(entity).remove::<InTileMap>();
+            transform.translation = Vec3::new(transform.translation.x, transform.translation.y, -7.);
+        }
     }
 
 
