@@ -8,8 +8,8 @@ pub struct MainCamera;
 #[derive(Component)]
 pub struct TileMap{
     pub running: bool,
-    pub current_state: HashMap<uVec3, (Option<Entity>, i32)>,
-    pub stable_current_state: HashMap<uVec3, (Option<Entity>, i32)>,
+    pub current_state: HashMap<uVec3, (Option<Entity>, i32)>,   // map qui est mise à jour toute les frames
+    pub stable_current_state: HashMap<uVec3, (Option<Entity>, i32)>,  // map qui contiens les pixels n'ayant pas été mis à jour depuis plus de X itérations. ces pixels sont "réveillé" (transféré vers l'autre hashmap) quand il y a une mise à jour d'un pixel à proximité.
 }
 
 #[derive(Component)]

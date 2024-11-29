@@ -197,7 +197,8 @@ pub fn hide_off_tiles(
     });
 }
 
-//TODO multithread this shit and make it despawn tiles instead of lifting
+
+// de l'affichage, pas le plus important.
 pub fn display_tilemap(
     mut refresh_timer_query: Query<&mut RefreshTimer>,
     mut tilemap_query: Query<&mut TileMap>,
@@ -235,17 +236,14 @@ pub fn display_tilemap(
     for (pos, (entity, updateState)) in tileMap.current_state.iter_mut(){
         if !entity.is_none(){
             if let Ok((tileEntity, tile, mut transform)) = tile_query.get_mut(entity.unwrap()){
-                // println!("im in there");
                 transform.translation = pos.toVec3();
             } else if(!currTile.is_none()){
-                // println!("im right here");
                 let (tileEntity, tile, mut tileTransform) = currTile.unwrap();
                 *entity = Option::from(tileEntity);
                 tileTransform.translation = pos.toVec3();
                 currTile = tiles.next();
                 commands.entity(tileEntity).insert(InTileMap);
             } else if(index < tileMapSize){
-                // println!("over there");
                 let ent = commands.spawn((
                     MaterialMesh2dBundle {
                         mesh: refmesh.clone(),
@@ -298,7 +296,7 @@ pub fn display_tilemap(
         }
     }
 
-    println!("{} + {} = {} tiles {}s", sizea, sizeb, tileMapSize, time.delta().as_secs_f64());
+    // println!("{} + {} = {} tiles {}s", sizea, sizeb, tileMapSize, time.delta().as_secs_f64());
 }
 
 pub fn setup_tiles_cache(mut commands: Commands){
@@ -341,20 +339,22 @@ pub fn run_simulation(
     if(keyboard_input.just_pressed(KeyCode::Space)){
         tileMap.running = !tileMap.running;
         if(tileMap.running){
-            println!("Simulation started");
+            // println!("Simulation started");
         } else {
-            println!("Simulation stopped");
+            // println!("Simulation stopped");
         }
     }
     if(tileMap.running){
         let mut newTileMap: HashMap<uVec3, (Option<Entity>, i32)> = tileMap.current_state.clone();
         let mut newStableTileMap: HashMap<uVec3, (Option<Entity>, i32)> = tileMap.stable_current_state.clone();
         let mut inTileMapRemove: Vec<Entity> = Vec::new();
-        //TODO multithread the inside of this loop
+        //TODO multithread the inside of this loop, or not cuz it might be slower WTF ???
         for tile in tileMap.current_state.iter(){
             checkArround(tile.0, &tileMap.current_state, &tileMap.stable_current_state, &mut newTileMap, &mut newStableTileMap, &mut inTileMapRemove);
         }
         //
+
+        // supprimer le composant pour le délier du pixel supprimé
         for t in inTileMapRemove{
             commands.entity(t).remove::<InTileMap>();
         }
@@ -367,7 +367,9 @@ pub fn run_simulation(
 
 pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>, stableTileMap: &HashMap<uVec3, (Option<Entity>, i32)>, newTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>, newStableTileMap: &mut HashMap<uVec3, (Option<Entity>, i32)>, inTileMapRemove: &mut Vec<Entity>){
     let mut count = 0;
+    // regarder autour du pixel
     for i in -1..2{
+        //regarder autour des pixels de contours pour donner la vie
         for j in -1..2{
             if(!tileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)) && !stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0))){
                 let mut countArround = 0;
@@ -380,10 +382,12 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
                         }
                     }
                 }
+                // donner la vie
                 if(countArround == 3){
                     newTileMap.insert(uVec3::new(pos.x + i, pos.y + j, 0), (None, UPDATE_COUNT_LIMIT));
                     for p in tilesAvailable{
                         if stableTileMap.contains_key(&p){
+                            // réveiller les pixels dormants
                             for k in -UNSTBLE_CHANGER_LIMIT..UNSTBLE_CHANGER_LIMIT+1{
                                 for l in -UNSTBLE_CHANGER_LIMIT..UNSTBLE_CHANGER_LIMIT+1{
                                     if stableTileMap.contains_key(&uVec3::new(pos.x+k, pos.y+l, pos.z)) || tileMap.contains_key(&uVec3::new(pos.x+k, pos.y+l, pos.z)){
@@ -402,6 +406,7 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
             }
         }
     }
+    // tuer ou mettre à jour le compteur de stabilité
     if(count < 2 || count > 3){
         let (ent, upd) = tileMap.get(&uVec3::new(pos.x, pos.y, 0)).unwrap();
         if(!ent.is_none()){
@@ -409,6 +414,7 @@ pub fn checkArround(pos: &uVec3, tileMap: &HashMap<uVec3, (Option<Entity>, i32)>
         }
         newTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
         newStableTileMap.remove(&uVec3::new(pos.x, pos.y, 0));
+        // réveiller les pixels dormants
         for i in -UNSTBLE_CHANGER_LIMIT..UNSTBLE_CHANGER_LIMIT+1{
             for j in -UNSTBLE_CHANGER_LIMIT..UNSTBLE_CHANGER_LIMIT+1{
                 if !(i==0 && j==0) && stableTileMap.contains_key(&uVec3::new(pos.x + i, pos.y + j, 0)){
@@ -475,8 +481,14 @@ pub fn place_patterns(
 
         for i in 0..30 {
             for j in 0..57{
-                if(benchmark[i][j] == 1){
-                    tileMap.current_state.insert(uVec3::new(i as i32, j as i32, 0), (None, UPDATE_COUNT_LIMIT));
+                if(benchmark[i][j] == 1 && !(tileMap.current_state.contains_key(&uVec3::new(i as i32, j as i32, 0)))){
+                    let mut entity: Option<Entity> = None;
+                    if tileMap.stable_current_state.contains_key(&uVec3::new(i as i32, j as i32, 0)) {
+                        let (pos, (e, update_count)) = tileMap.stable_current_state.get_key_value(&uVec3::new(i as i32, j as i32, 0)).unwrap();
+                        entity = *e;
+                    }
+                    tileMap.stable_current_state.remove(&uVec3::new(i as i32, j as i32, 0));
+                    tileMap.current_state.insert(uVec3::new(i as i32, j as i32, 0), (entity, UPDATE_COUNT_LIMIT));
                 }
             }
         }
@@ -492,8 +504,14 @@ pub fn place_patterns(
 
         for i in 0..3 {
             for j in 0..3{
-                if(glider[i][j] == 1){
-                    tileMap.current_state.insert(uVec3::new(i as i32, j as i32, 0), (None, UPDATE_COUNT_LIMIT));
+                if(glider[i][j] == 1 && !(tileMap.current_state.contains_key(&uVec3::new(i as i32, j as i32, 0)))){
+                    let mut entity: Option<Entity> = None;
+                    if tileMap.stable_current_state.contains_key(&uVec3::new(i as i32, j as i32, 0)) {
+                        let (pos, (e, update_count)) = tileMap.stable_current_state.get_key_value(&uVec3::new(i as i32, j as i32, 0)).unwrap();
+                        entity = *e;
+                    }
+                    tileMap.stable_current_state.remove(&uVec3::new(i as i32, j as i32, 0));
+                    tileMap.current_state.insert(uVec3::new(i as i32, j as i32, 0), (entity, UPDATE_COUNT_LIMIT));
                 }
             }
         }
@@ -522,6 +540,6 @@ pub fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Wi
         }else{
             PresentMode::AutoVsync
         };
-        println!("PRESENT MODE : {:?}", window.present_mode)
+        // println!("PRESENT MODE : {:?}", window.present_mode)
     }
 }
